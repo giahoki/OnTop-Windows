@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ontopwindows/ontopwindows.vcxproj" Id="911834e6-aab6-4617-b491-3e2ad0a945ea" />
+</Solution>

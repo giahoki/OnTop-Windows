@@ -1,0 +1,20 @@
+# Visual Studio user files
+.vs/
+*.vcxproj.user
+*.vcxproj.filters
+
+# Build output
+x64/
+Debug/
+Release/
+*.exe
+*.pdb
+*.lib
+*.obj
+*.tlog/
+
+# Settings
+settings.ini
+
+# Other
+*.iss
