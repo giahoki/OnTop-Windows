@@ -16,6 +16,7 @@
 #include <uxtheme.h>
 #include <commctrl.h>
 #include <gdiplus.h>
+#include <winhttp.h>
 #include <vector>
 #include <string>
 
@@ -25,6 +26,7 @@
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "Msimg32.lib")
 #pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "winhttp.lib")
 
 using namespace Gdiplus;
 
@@ -125,6 +127,7 @@ extern bool g_isDragging;
 extern POINT g_dragStart;
 extern RECT g_wndRectStart;
 extern Button g_btnMainSelect;
+extern Button g_btnMainMenu;
 extern RECT g_closeBtnRect;
 extern bool g_closeBtnHover;
 extern RECT g_titleBarRect;
@@ -203,6 +206,12 @@ void CreateCloneWindow();
 void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY);
 void ResetToMainWindow(HWND hCloneWnd);
 LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+#define ID_CHECK_UPDATES 2001
+#define ID_ABOUT 2002
+void ShowMainContextMenu(HWND hWnd, int screenX, int screenY);
+void CheckForUpdates(HWND hWnd);
+void ShowAboutDialog(HWND hWnd);
 
 void ShowSettingsDialog();
 void RenderSettingsDialog(HWND hDlg);
