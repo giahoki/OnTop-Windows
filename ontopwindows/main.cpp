@@ -575,7 +575,6 @@ static void RenderAboutDialog(HWND hDlg) {
             g_aboutLinkRc = { 20, y, w - 20, y + 24 };
             DrawTextStyled(hMemDC, line, lineRc, txtColor, bold, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
         } else if (isTg) {
-            // Draw "Telegram: " as normal text, then "@bezd2rr" as a link
             RECT labelRc = { 20, y, 120, y + 24 };
             DrawTextStyled(hMemDC, L"Telegram: ", labelRc, COLOR_TEXT_PRIMARY, false, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
             g_aboutTgLinkRc = { 120, y, w - 20, y + 24 };

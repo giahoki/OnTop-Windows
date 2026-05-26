@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 HWND g_hCloneWnd = nullptr;
 HTHUMBNAIL g_hThumbnail = nullptr;
@@ -8,7 +8,6 @@ bool g_clickThrough = false;
 bool g_showBorder = true;
 bool g_isResetting = false;
 
-// Crop globals
 bool g_isCropping = false;
 RECT g_cropRectStart = { 0, 0, 0, 0 };
 RECT g_cropRectCurrent = { 0, 0, 0, 0 };
@@ -30,7 +29,6 @@ KeyBinding g_bindCrop;
 #define PW_RENDERFULLCONTENT 0x00000002
 #endif
 
-// ─── Manual capture fallback for background/minimized source window ───
 static bool g_manualCapture = false;
 static HBITMAP g_captureBmp = nullptr;
 static int g_captureBmpW = 0, g_captureBmpH = 0;
@@ -49,10 +47,14 @@ void UpdateThumbnail() {
         props.fVisible = g_manualCapture ? FALSE : TRUE;
         props.fSourceClientAreaOnly = TRUE;
         props.rcDestination = g_thumbRect;
-        // Apply source crop if active
+        
+        props.dwFlags |= DWM_TNP_RECTSOURCE;
         if (g_cropSourceRect.right > g_cropSourceRect.left && g_cropSourceRect.bottom > g_cropSourceRect.top) {
-            props.dwFlags |= DWM_TNP_RECTSOURCE;
             props.rcSource = g_cropSourceRect;
+        } else {
+            RECT fullRc;
+            GetClientRect(g_hSourceWindow, &fullRc);
+            props.rcSource = fullRc;
         }
         DwmUpdateThumbnailProperties(g_hThumbnail, &props);
     }
@@ -136,8 +138,8 @@ static std::vector<MenuItem> g_menuItems;
 #define ID_TOGGLE_BORDER 1002
 #define ID_CROP 1003
 #define ID_CLOSE 1004
+#define ID_RETURN_MAIN 1005
 
-// ─── Crop Overlay ────────────────────────────────────────────────
 static RECT g_cropOverlayRect = { 0, 0, 0, 0 };
 static POINT g_cropDragStart = { 0, 0 };
 static POINT g_cropDragCurrent = { 0, 0 };
@@ -155,17 +157,17 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
         int w = rc.right, h = rc.bottom;
         if (w <= 0 || h <= 0) { EndPaint(hWnd, &ps); return 0; }
 
-        // Memory DC for double-buffering
+        
         HDC hMemDC = CreateCompatibleDC(hdc);
         HBITMAP hMemBmp = CreateCompatibleBitmap(hdc, w, h);
         HBITMAP hOldBmp = (HBITMAP)SelectObject(hMemDC, hMemBmp);
 
-        // Dark overlay background
+        
         HBRUSH hDarkBrush = CreateSolidBrush(RGB(8, 8, 8));
         FillRect(hMemDC, &rc, hDarkBrush);
         DeleteObject(hDarkBrush);
 
-        // Selection rectangle
+        
         if (g_cropDragging) {
             int x1 = (int)g_cropDragStart.x, y1 = (int)g_cropDragStart.y;
             int x2 = (int)g_cropDragCurrent.x, y2 = (int)g_cropDragCurrent.y;
@@ -174,13 +176,13 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             if (x2 == x1) x2 = x1 + 1;
             if (y2 == y1) y2 = y1 + 1;
 
-            // Lighter interior for selection area
+            
             RECT cropRc = { x1, y1, x2, y2 };
             HBRUSH hLightBrush = CreateSolidBrush(RGB(30, 30, 30));
             FillRect(hMemDC, &cropRc, hLightBrush);
             DeleteObject(hLightBrush);
 
-            // Accent border
+            
             HPEN hPen = CreatePen(PS_SOLID, 2, COLOR_ACCENT);
             HPEN hOldPen = (HPEN)SelectObject(hMemDC, hPen);
             HBRUSH hOldBrush = (HBRUSH)SelectObject(hMemDC, GetStockObject(NULL_BRUSH));
@@ -189,7 +191,7 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             SelectObject(hMemDC, hOldBrush);
             DeleteObject(hPen);
 
-            // Dimensions text
+            
             int cropW = x2 - x1, cropH = y2 - y1;
             int textX = (x1 + x2) / 2;
             int textY = y1 < 30 ? 0 : (y1 - 30);
@@ -199,7 +201,7 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             DrawTextStyled(hMemDC, dimText, textRc, COLOR_ACCENT, true, 14, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         }
 
-        // Instruction text at bottom
+        
         RECT instrRc = { 0, h - 40, w, h };
         DrawTextStyled(hMemDC, L"\u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u043A\u043D\u043E\u043F\u043A\u0443 \u0434\u043B\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u2022 Esc \u0434\u043B\u044F \u043E\u0442\u043C\u0435\u043D\u044B",
                        instrRc, COLOR_TEXT_SECOND, false, 12, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -250,14 +252,14 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
             if (x2 > cr.right) x2 = cr.right;
             if (y2 < cr.top) y2 = cr.top;
             if (y2 > cr.bottom) y2 = cr.bottom;
-            // Normalize
+            
             if (x2 < x1) { int t = x1; x1 = x2; x2 = t; }
             if (y2 < y1) { int t = y1; y1 = y2; y2 = t; }
             int cw = x2 - x1;
             int ch = y2 - y1;
-            // Minimum size check
+            
             if (cw > 50 && ch > 50) {
-                // Post message to clone window with crop rectangle
+                
                 RECT* cropRect = new RECT{ x1, y1, x2, y2 };
                 PostMessage(g_hCropSourceWnd, WM_APP + 100, 0, (LPARAM)cropRect);
             }
@@ -327,7 +329,7 @@ void ShowCropOverlay(HWND hCloneWnd) {
     ShowWindow(g_hCropOverlay, SW_SHOW);
     SetLayeredWindowAttributes(g_hCropOverlay, 0, 200, LWA_ALPHA);
 
-    // Mouse button is already held from WM_LBUTTONDOWN trigger — start drag immediately
+    
     POINT cursorPt;
     GetCursorPos(&cursorPt);
     ScreenToClient(g_hCropOverlay, &cursorPt);
@@ -351,7 +353,7 @@ void ApplyCrop(HWND hCloneWnd, const RECT& cropRect) {
     if (cropW < 100) cropW = 100;
     if (cropH < 60) cropH = 60;
 
-    // Old client dimensions BEFORE resize
+    
     RECT oldClientRc;
     GetClientRect(hCloneWnd, &oldClientRc);
     int oldCW = oldClientRc.right - oldClientRc.left;
@@ -359,7 +361,7 @@ void ApplyCrop(HWND hCloneWnd, const RECT& cropRect) {
     if (oldCW < 1) oldCW = 1;
     if (oldCH < 1) oldCH = 1;
 
-    // Determine which source region the clone currently shows
+    
     RECT viewRc = g_cropSourceRect;
     if (viewRc.right <= viewRc.left || viewRc.bottom <= viewRc.top) {
         RECT srcRc = { 0, 0, 1, 1 };
@@ -371,8 +373,8 @@ void ApplyCrop(HWND hCloneWnd, const RECT& cropRect) {
     int viewW = viewRc.right - viewRc.left;
     int viewH = viewRc.bottom - viewRc.top;
 
-    // Map crop rect from clone client coords → source coords.
-    // Clone pixel (cx,cy) = source pixel (viewLeft + cx*viewW/oldCW, viewTop + cy*viewH/oldCH)
+    
+    
     g_cropSourceRect.left   = viewRc.left + cropRect.left   * viewW / oldCW;
     g_cropSourceRect.top    = viewRc.top  + cropRect.top    * viewH / oldCH;
     g_cropSourceRect.right  = viewRc.left + cropRect.right  * viewW / oldCW;
@@ -394,7 +396,7 @@ void ApplyCrop(HWND hCloneWnd, const RECT& cropRect) {
 void ResetCrop() {
     if (!g_hCloneWnd || !IsWindow(g_hCloneWnd)) return;
 
-    // Store current clone rect before destroying
+    
     RECT cloneRc;
     GetWindowRect(g_hCloneWnd, &cloneRc);
     int savedW = cloneRc.right - cloneRc.left;
@@ -405,21 +407,21 @@ void ResetCrop() {
     g_isResetting = true;
     DestroyWindow(g_hCloneWnd);
 
-    // Process messages to allow destruction to complete
+    
     MSG msg;
     while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
 
-    // If clone was recreated (not main window), resize it back
+    
     if (g_hCloneWnd && IsWindow(g_hCloneWnd)) {
         SetWindowPos(g_hCloneWnd, nullptr, savedX, savedY, savedW, savedH, SWP_NOZORDER);
     } else {
-        // Need to recreate clone window
+        
         g_isResetting = false;
         HINSTANCE hInst = GetModuleHandleW(nullptr);
-        // Recreate main window first
+        
         CreateWindowExW(WS_EX_LAYERED, L"OnTopWindowsMainClass", L"OnTop Windows", WS_POPUP | WS_VISIBLE,
                         0, 0, 400, 330, nullptr, nullptr, hInst, nullptr);
     }
@@ -516,7 +518,7 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         ApplyWin11Effects(hWnd);
         g_checkTimer = SetTimer(hWnd, TIMER_CHECK_ID, CHECK_INTERVAL_MS, nullptr);
         RECT srcRc;
-        GetWindowRect(g_hSourceWindow, &srcRc);
+        GetClientRect(g_hSourceWindow, &srcRc);
         int srcW = srcRc.right - srcRc.left;
         int srcH = srcRc.bottom - srcRc.top;
         if (srcW > 0 && srcH > 0) {
@@ -542,7 +544,7 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         RegisterHotKey(hWnd, 1, g_bindClickThrough.modifiers, g_bindClickThrough.vk);
         HRESULT hr = DwmRegisterThumbnail(hWnd, g_hSourceWindow, &g_hThumbnail);
         if (SUCCEEDED(hr)) {
-            // Set initial thumbnail properties
+            
             g_thumbRect = g_showBorder ? RECT{ 0, 36, cloneW, cloneH } : RECT{ 0, 0, cloneW, cloneH };
             UpdateThumbnail();
         }
@@ -630,7 +632,7 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     case WM_LBUTTONDOWN: {
         POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 
-        // Check crop binding (default Ctrl+LButton)
+        
         bool cropModsMatch = (g_bindCrop.modifiers != 0);
         if (cropModsMatch) {
             UINT mods = 0;
@@ -701,7 +703,7 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         break;
     }
     case WM_APP + 100: {
-        // Crop confirmation message
+        
         RECT* pCropRect = (RECT*)lParam;
         if (pCropRect) {
             ApplyCrop(hWnd, *pCropRect);
@@ -749,7 +751,7 @@ void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY) {
     int itemH = 30;
     int pad = 1;
     int menuW = 210;
-    int n = 3; // Reset, Border, Close
+    int n = 4; 
     int menuH = n * itemH + pad * 2;
 
     g_menuResult = 0;
@@ -757,7 +759,8 @@ void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY) {
     g_menuItems.clear();
     g_menuItems.push_back({ L"\u27F2 \u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043E\u043A\u043D\u043E", ID_RESET, { pad, pad, menuW - pad, pad + itemH }, false });
     g_menuItems.push_back({ L"\u25A1 \u0413\u0440\u0430\u043D\u0438\u0446\u044B", ID_TOGGLE_BORDER, { pad, pad + itemH, menuW - pad, pad + 2 * itemH }, false });
-    g_menuItems.push_back({ L"\u2715 \u0417\u0430\u043A\u0440\u044B\u0442\u044C", ID_CLOSE, { pad, pad + 2 * itemH, menuW - pad, pad + 3 * itemH }, false });
+    g_menuItems.push_back({ L"\u21A9 \u041D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435", ID_RETURN_MAIN, { pad, pad + 2 * itemH, menuW - pad, pad + 3 * itemH }, false });
+    g_menuItems.push_back({ L"\u2715 \u0417\u0430\u043A\u0440\u044B\u0442\u044C", ID_CLOSE, { pad, pad + 3 * itemH, menuW - pad, pad + 4 * itemH }, false });
 
     g_hMenuWnd = CreateWindowExW(WS_EX_TOPMOST, L"ContextMenuClass", L"", WS_POPUP, screenX, screenY, menuW, menuH, nullptr, nullptr, hInst, nullptr);
 
@@ -772,7 +775,7 @@ void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY) {
 
     switch (g_menuResult) {
     case ID_RESET:
-        ResetToMainWindow(hWnd);
+        ResetCloneWindow(hWnd);
         break;
     case ID_TOGGLE_BORDER:
         g_showBorder = !g_showBorder;
@@ -790,13 +793,47 @@ void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY) {
         }
         InvalidateRect(hWnd, nullptr, TRUE);
         break;
+    case ID_RETURN_MAIN:
+        ResetToMainWindow(hWnd);
+        break;
     case ID_CLOSE:
         DestroyWindow(hWnd);
         break;
     }
 }
 
+void ResetCloneWindow(HWND hCloneWnd) {
+    g_cropSourceRect = { 0, 0, 0, 0 };
+    RECT srcRc;
+    GetClientRect(g_hSourceWindow, &srcRc);
+    int srcW = srcRc.right - srcRc.left;
+    int srcH = srcRc.bottom - srcRc.top;
+    if (srcW > 0 && srcH > 0) {
+        g_sourceAspectRatio = (double)srcW / srcH;
+    } else {
+        g_sourceAspectRatio = 4.0 / 3.0;
+    }
+    int cloneW = g_settings.maxCloneWidth;
+    int cloneH = g_settings.maxCloneHeight;
+    if (g_settings.preserveAspectRatio && srcW > 0 && srcH > 0) {
+        double aspect = (double)srcW / srcH;
+        if (srcW > srcH) {
+            cloneW = (srcW < g_settings.maxCloneWidth) ? srcW : g_settings.maxCloneWidth;
+            cloneH = (int)(cloneW / aspect);
+            if (cloneH < 100) cloneH = 100;
+        } else {
+            cloneH = (srcH < g_settings.maxCloneHeight) ? srcH : g_settings.maxCloneHeight;
+            cloneW = (int)(cloneH * aspect);
+            if (cloneW < 150) cloneW = 150;
+        }
+    }
+    SetWindowPos(hCloneWnd, nullptr, 0, 0, cloneW, cloneH, SWP_NOMOVE | SWP_NOZORDER);
+    UpdateThumbnail();
+    InvalidateRect(hCloneWnd, nullptr, TRUE);
+}
+
 void ResetToMainWindow(HWND hCloneWnd) {
+    g_cropSourceRect = { 0, 0, 0, 0 };
     g_isResetting = true;
     DestroyWindow(hCloneWnd);
 }

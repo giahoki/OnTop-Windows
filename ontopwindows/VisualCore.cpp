@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 void FillRectWithColor(HDC hdc, const RECT& rc, COLORREF color) {
     HBRUSH hBrush = CreateSolidBrush(color);

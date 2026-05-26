@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 HWND g_hSelectDlg = nullptr;
 HWND g_hListBox = nullptr;

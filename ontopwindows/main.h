@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #ifndef UNICODE
 #define UNICODE
@@ -86,9 +86,9 @@ const COLORREF COLOR_ACCENT = RGB(0x60, 0xCD, 0xFF);
 const COLORREF COLOR_ACCENT_HOVER = RGB(0x4F, 0xB4, 0xE6);
 const COLORREF COLOR_BORDER = RGB(0x45, 0x45, 0x45);
 
-#define SETTINGS_VERSION 4
+#define SETTINGS_VERSION 5
 
-#define APP_VERSION L"1.0.4"
+#define APP_VERSION L"1.0.5"
 
 struct Button {
     RECT rect = {0, 0, 0, 0};
@@ -216,6 +216,7 @@ LRESULT CALLBACK SelectWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam
 
 void CreateCloneWindow();
 void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY);
+void ResetCloneWindow(HWND hCloneWnd);
 void ResetToMainWindow(HWND hCloneWnd);
 LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 

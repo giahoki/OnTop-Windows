@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 #define ID_SLOW_SLIDER  201
 #define ID_FAST_SLIDER  202
@@ -62,7 +62,7 @@ void LoadSettings() {
 
     g_settings.autoUpdate = GetPrivateProfileIntW(L"General", L"AutoUpdate", 1, path) != 0;
 
-    // Version tracking: reset auto-update on version change (fresh install)
+    
     wchar_t lastVer[64] = {0};
     GetPrivateProfileStringW(L"General", L"LastVersion", L"", lastVer, 64, path);
     if (wcscmp(lastVer, APP_VERSION) != 0) {
@@ -77,7 +77,6 @@ void LoadSettings() {
             g_bindResizeFast.FromString(L"5:0");
         }
         if (fileVersion < 3) {
-            // Old default was "2:0" (Ctrl+Wheel), fix to "2:4100" (Ctrl+LButton)
             if (g_bindCrop.vk == 0 || g_bindCrop.vk == MOUSE_BIND_LBUTTON) {
                 g_bindCrop.modifiers = MOD_CONTROL;
                 g_bindCrop.vk = MOUSE_BIND_LBUTTON;
@@ -197,7 +196,7 @@ void RenderSettingsDialog(HWND hDlg) {
         (g_capturingBinding == &g_bindCrop) ? captureDbg : g_bindCrop.ToString(),
         g_cropBindHover, g_capturingBinding == &g_bindCrop);
 
-    // Auto-update toggle
+    
     g_autoUpdateRect = { 264, CROP_CY + 14, 362, CROP_CY + 32 };
     DrawTextStyled(hMemDC, L"Авто-обновление", { 24, CROP_CY + 10, w - 24, CROP_CY + 30 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     COLORREF auBg = g_autoUpdateHover ? COLOR_BG_HOVER : COLOR_BG_CARD;

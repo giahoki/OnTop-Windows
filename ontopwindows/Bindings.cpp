@@ -1,4 +1,4 @@
-#include "main.h"
+﻿#include "main.h"
 
 KeyBinding g_bindClickThrough;
 KeyBinding g_bindResizeSlow;
