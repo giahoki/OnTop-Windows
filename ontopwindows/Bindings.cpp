@@ -66,6 +66,7 @@ static std::wstring VKToName(UINT vk) {
         case MOUSE_BIND_MBUTTON: return L"MButton";
         case MOUSE_BIND_WHEELUP: return L"Wheel\u2191";
         case MOUSE_BIND_WHEELDOWN: return L"Wheel\u2193";
+        case MOUSE_BIND_LBUTTON: return L"LButton";
     }
     wchar_t buf[16]; swprintf_s(buf, L"VK_%d", vk);
     return buf;
@@ -132,6 +133,7 @@ void KeyBinding::FromString(const std::wstring& str) {
         {L"WheelUp", MOUSE_BIND_WHEELUP},
         {L"WheelDown", MOUSE_BIND_WHEELDOWN},
         {L"Wheel", 0},
+        {L"LButton", MOUSE_BIND_LBUTTON},
     };
     for (const auto& e : tbl) {
         if (key == e.name) { vk = e.vk; return; }
@@ -198,6 +200,12 @@ void ProcessCaptureKey(UINT vk, bool down) {
 
 LRESULT CALLBACK CaptureMouseHookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && g_capturingBinding) {
+        if (wParam == WM_LBUTTONDOWN) {
+            g_capturingBinding->modifiers = g_captureAllMods;
+            g_capturingBinding->vk = MOUSE_BIND_LBUTTON;
+            FinishCapture();
+            return 1;
+        }
         if (wParam == WM_MBUTTONDOWN) {
             g_capturingBinding->modifiers = g_captureAllMods;
             g_capturingBinding->vk = MOUSE_BIND_MBUTTON;

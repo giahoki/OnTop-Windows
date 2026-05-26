@@ -16,13 +16,17 @@ bool g_setsCancelBtnHover = false;
 RECT g_slowBindRect = { 264, 59, 362, 77 };
 RECT g_fastBindRect = { 264, 105, 362, 123 };
 RECT g_ctBindRect = { 264, 155, 362, 173 };
+RECT g_cropBindRect = { 264, 195, 362, 213 };
 bool g_slowBindHover = false;
 bool g_fastBindHover = false;
 bool g_ctBindHover = false;
+bool g_cropBindHover = false;
+RECT g_autoUpdateRect = { 0, 0, 0, 0 };
+bool g_autoUpdateHover = false;
 
 const int TRACK_L = 20, TRACK_R = 230, THUMB_R = 7;
-const int SLOW_CY = 68, FAST_CY = 114, CT_CY = 164, BIND_X = 264, BIND_W = 98;
-const int SLOW_LABEL_Y = 46, FAST_LABEL_Y = 92, CT_LABEL_Y = 142;
+const int SLOW_CY = 68, FAST_CY = 114, CT_CY = 164, CROP_CY = 204, BIND_X = 264, BIND_W = 98;
+const int SLOW_LABEL_Y = 46, FAST_LABEL_Y = 92, CT_LABEL_Y = 142, CROP_LABEL_Y = 182;
 
 void GetSettingsPath(wchar_t* buf, size_t len) {
     GetEnvironmentVariableW(L"APPDATA", buf, (DWORD)len);
@@ -53,6 +57,17 @@ void LoadSettings() {
     g_bindResizeSlow.FromString(buf);
     GetPrivateProfileStringW(L"Binds", L"ResizeFast", L"5:0", buf, 64, path);
     g_bindResizeFast.FromString(buf);
+    GetPrivateProfileStringW(L"Binds", L"Crop", L"2:4100", buf, 64, path);
+    g_bindCrop.FromString(buf);
+
+    g_settings.autoUpdate = GetPrivateProfileIntW(L"General", L"AutoUpdate", 1, path) != 0;
+
+    // Version tracking: reset auto-update on version change (fresh install)
+    wchar_t lastVer[64] = {0};
+    GetPrivateProfileStringW(L"General", L"LastVersion", L"", lastVer, 64, path);
+    if (wcscmp(lastVer, APP_VERSION) != 0) {
+        g_settings.autoUpdate = true;
+    }
 
     int fileVersion = GetPrivateProfileIntW(L"General", L"Version", 0, path);
     if (fileVersion < SETTINGS_VERSION) {
@@ -60,6 +75,13 @@ void LoadSettings() {
             g_bindClickThrough.FromString(L"5:79");
             g_bindResizeSlow.FromString(L"1:0");
             g_bindResizeFast.FromString(L"5:0");
+        }
+        if (fileVersion < 3) {
+            // Old default was "2:0" (Ctrl+Wheel), fix to "2:4100" (Ctrl+LButton)
+            if (g_bindCrop.vk == 0 || g_bindCrop.vk == MOUSE_BIND_LBUTTON) {
+                g_bindCrop.modifiers = MOD_CONTROL;
+                g_bindCrop.vk = MOUSE_BIND_LBUTTON;
+            }
         }
         SaveSettings();
     }
@@ -91,6 +113,12 @@ void SaveSettings() {
     WritePrivateProfileStringW(L"Binds", L"ResizeSlow", buf, path);
     swprintf_s(buf, L"%u:%u", g_bindResizeFast.modifiers, g_bindResizeFast.vk);
     WritePrivateProfileStringW(L"Binds", L"ResizeFast", buf, path);
+    swprintf_s(buf, L"%u:%u", g_bindCrop.modifiers, g_bindCrop.vk);
+    WritePrivateProfileStringW(L"Binds", L"Crop", buf, path);
+
+    swprintf_s(buf, L"%d", g_settings.autoUpdate ? 1 : 0);
+    WritePrivateProfileStringW(L"General", L"AutoUpdate", buf, path);
+    WritePrivateProfileStringW(L"General", L"LastVersion", APP_VERSION, path);
 }
 
 void DrawBindingChip(HDC hdc, const RECT& rc, const std::wstring& text, bool hover, bool capturing) {
@@ -135,6 +163,7 @@ void RenderSettingsDialog(HWND hDlg) {
     g_slowBindRect = { BIND_X, SLOW_CY - 9, BIND_X + BIND_W, SLOW_CY + 9 };
     g_fastBindRect = { BIND_X, FAST_CY - 9, BIND_X + BIND_W, FAST_CY + 9 };
     g_ctBindRect = { BIND_X, CT_CY - 9, BIND_X + BIND_W, CT_CY + 9 };
+    g_cropBindRect = { BIND_X, CROP_CY - 9, BIND_X + BIND_W, CROP_CY + 9 };
 
     DrawTextStyled(hMemDC, L"Медленный ресайз", { 24, SLOW_LABEL_Y, TRACK_R, SLOW_CY - 4 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_BOTTOM | DT_SINGLELINE);
     int tx = SliderXFromValue(g_settings.slowResizeStep, 1, 10, TRACK_L, TRACK_R);
@@ -163,8 +192,23 @@ void RenderSettingsDialog(HWND hDlg) {
         (g_capturingBinding == &g_bindClickThrough) ? captureDbg : g_bindClickThrough.ToString(),
         g_ctBindHover, g_capturingBinding == &g_bindClickThrough);
 
-    RECT okRc = { 186, 232, 262, 262 };
-    RECT cancelRc = { 276, 232, 352, 262 };
+    DrawTextStyled(hMemDC, L"Обрезка", { 24, CROP_LABEL_Y, w - 24, CROP_CY - 4 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_BOTTOM | DT_SINGLELINE);
+    DrawBindingChip(hMemDC, g_cropBindRect,
+        (g_capturingBinding == &g_bindCrop) ? captureDbg : g_bindCrop.ToString(),
+        g_cropBindHover, g_capturingBinding == &g_bindCrop);
+
+    // Auto-update toggle
+    g_autoUpdateRect = { 264, CROP_CY + 14, 362, CROP_CY + 32 };
+    DrawTextStyled(hMemDC, L"Авто-обновление", { 24, CROP_CY + 10, w - 24, CROP_CY + 30 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    COLORREF auBg = g_autoUpdateHover ? COLOR_BG_HOVER : COLOR_BG_CARD;
+    DrawRoundedRect(hMemDC, g_autoUpdateRect, auBg, 6);
+    DrawRoundedRectOutline(hMemDC, g_autoUpdateRect, g_settings.autoUpdate ? COLOR_ACCENT : COLOR_BORDER, 6, 1);
+    DrawTextStyled(hMemDC, g_settings.autoUpdate ? L"Вкл" : L"Выкл", g_autoUpdateRect,
+                    g_settings.autoUpdate ? COLOR_ACCENT : COLOR_TEXT_SECOND, true, 11,
+                    DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    RECT okRc = { 186, 272, 262, 302 };
+    RECT cancelRc = { 276, 272, 352, 302 };
     const int btnRadius = 10;
     for (int bi = 0; bi < 2; bi++) {
         bool isOk = (bi == 0);
@@ -228,6 +272,8 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
         g_slowBindHover = false;
         g_fastBindHover = false;
         g_ctBindHover = false;
+        g_cropBindHover = false;
+        g_autoUpdateHover = false;
         ApplyWin11Effects(hDlg);
         ACCENT_POLICY accent = { ACCENT_ENABLE_ACRYLICBLURBEHIND, 0, 0xCC202020, 0 };
         WINDOWCOMPOSITIONATTRIBDATA wca = { WCA_ACCENT_POLICY, &accent, sizeof(accent) };
@@ -248,8 +294,8 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
         POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         if (PtInRect(&g_setsCloseBtn, pt)) { CancelCapture(); if (g_hMainWnd) EnableWindow(g_hMainWnd, TRUE); DestroyWindow(hDlg); return 0; }
 
-        RECT okRc = { 186, 232, 262, 262 };
-        RECT cancelRc = { 276, 232, 352, 262 };
+        RECT okRc = { 186, 272, 262, 302 };
+        RECT cancelRc = { 276, 272, 352, 302 };
         if (PtInRect(&okRc, pt)) { CancelCapture(); SaveSettings(); if (g_hMainWnd) EnableWindow(g_hMainWnd, TRUE); DestroyWindow(hDlg); return 0; }
         if (PtInRect(&cancelRc, pt)) {
             CancelCapture(); LoadSettings(); if (g_hMainWnd) EnableWindow(g_hMainWnd, TRUE); DestroyWindow(hDlg); return 0;
@@ -258,6 +304,8 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
         if (PtInRect(&g_slowBindRect, pt)) { CancelCapture(); StartCapture(&g_bindResizeSlow); return 0; }
         if (PtInRect(&g_fastBindRect, pt)) { CancelCapture(); StartCapture(&g_bindResizeFast); return 0; }
         if (PtInRect(&g_ctBindRect, pt)) { CancelCapture(); StartCapture(&g_bindClickThrough); return 0; }
+        if (PtInRect(&g_cropBindRect, pt)) { CancelCapture(); StartCapture(&g_bindCrop); return 0; }
+        if (PtInRect(&g_autoUpdateRect, pt)) { g_settings.autoUpdate = !g_settings.autoUpdate; InvalidateRect(hDlg, nullptr, FALSE); return 0; }
 
         int tx = SliderXFromValue(g_settings.slowResizeStep, 1, 10, TRACK_L, TRACK_R);
         if (abs(pt.x - tx) <= THUMB_R + 4 && abs(pt.y - SLOW_CY) <= THUMB_R + 4) {
@@ -290,8 +338,8 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
         POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         bool nc = PtInRect(&g_setsCloseBtn, pt);
         if (g_setsCloseBtnHover != nc) { g_setsCloseBtnHover = nc; InvalidateRect(hDlg, nullptr, FALSE); }
-        RECT okRc = { 186, 232, 262, 262 };
-        RECT cancelRc = { 276, 232, 352, 262 };
+        RECT okRc = { 186, 272, 262, 302 };
+        RECT cancelRc = { 276, 272, 352, 302 };
         bool oh = PtInRect(&okRc, pt);
         if (g_setsOkBtnHover != oh) { g_setsOkBtnHover = oh; InvalidateRect(hDlg, nullptr, FALSE); }
         bool ch = PtInRect(&cancelRc, pt);
@@ -303,6 +351,10 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
         if (g_fastBindHover != fh) { g_fastBindHover = fh; InvalidateRect(hDlg, nullptr, FALSE); }
         bool cth = PtInRect(&g_ctBindRect, pt);
         if (g_ctBindHover != cth) { g_ctBindHover = cth; InvalidateRect(hDlg, nullptr, FALSE); }
+        bool crh = PtInRect(&g_cropBindRect, pt);
+        if (g_cropBindHover != crh) { g_cropBindHover = crh; InvalidateRect(hDlg, nullptr, FALSE); }
+        bool auh = PtInRect(&g_autoUpdateRect, pt);
+        if (g_autoUpdateHover != auh) { g_autoUpdateHover = auh; InvalidateRect(hDlg, nullptr, FALSE); }
 
         if (g_sliderDrag) {
             int* pVal = (g_sliderDragId == ID_SLOW_SLIDER) ? &g_settings.slowResizeStep : &g_settings.fastResizeStep;
@@ -330,10 +382,11 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
     case WM_NCHITTEST: return HTCLIENT;
     case WM_SETCURSOR: {
         POINT pt; GetCursorPos(&pt); ScreenToClient(hDlg, &pt);
-        RECT okRc = { 186, 232, 262, 262 };
-        RECT cancelRc = { 276, 232, 352, 262 };
+        RECT okRc = { 186, 272, 262, 302 };
+        RECT cancelRc = { 276, 272, 352, 302 };
         bool overBtn = PtInRect(&g_setsCloseBtn, pt) || PtInRect(&okRc, pt) || PtInRect(&cancelRc, pt) ||
-                       PtInRect(&g_slowBindRect, pt) || PtInRect(&g_fastBindRect, pt) || PtInRect(&g_ctBindRect, pt);
+                       PtInRect(&g_slowBindRect, pt) || PtInRect(&g_fastBindRect, pt) || PtInRect(&g_ctBindRect, pt) ||
+                       PtInRect(&g_cropBindRect, pt) || PtInRect(&g_autoUpdateRect, pt);
         SetCursor(LoadCursorW(nullptr, overBtn ? IDC_HAND : IDC_ARROW));
         return TRUE;
     }
@@ -350,9 +403,9 @@ void ShowSettingsDialog() {
     wc.lpfnWndProc = SettingsWinProc; wc.hInstance = hInst; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = NULL; wc.lpszClassName = L"SettingsWinClass";
     RegisterClassExW(&wc);
-    HWND hDlg = CreateWindowExW(WS_EX_LAYERED, L"SettingsWinClass", L"\u2699 Настройки", WS_POPUP, 0, 0, 380, 280, g_hMainWnd, nullptr, hInst, nullptr);
+    HWND hDlg = CreateWindowExW(WS_EX_LAYERED, L"SettingsWinClass", L"\u2699 Настройки", WS_POPUP, 0, 0, 380, 320, g_hMainWnd, nullptr, hInst, nullptr);
     if (hDlg) {
-        CenterWindow(hDlg, 380, 280);
+        CenterWindow(hDlg, 380, 320);
         EnableWindow(g_hMainWnd, FALSE);
         ShowWindow(hDlg, SW_SHOW);
         RenderSettingsDialog(hDlg);

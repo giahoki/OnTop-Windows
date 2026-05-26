@@ -86,7 +86,9 @@ const COLORREF COLOR_ACCENT = RGB(0x60, 0xCD, 0xFF);
 const COLORREF COLOR_ACCENT_HOVER = RGB(0x4F, 0xB4, 0xE6);
 const COLORREF COLOR_BORDER = RGB(0x45, 0x45, 0x45);
 
-#define SETTINGS_VERSION 2
+#define SETTINGS_VERSION 4
+
+#define APP_VERSION L"1.0.4"
 
 struct Button {
     RECT rect = {0, 0, 0, 0};
@@ -101,11 +103,13 @@ struct AppSettings {
     bool preserveAspectRatio = true;
     int maxCloneWidth = 800;
     int maxCloneHeight = 600;
+    bool autoUpdate = true;
 };
 
-#define MOUSE_BIND_MBUTTON  0x1001
-#define MOUSE_BIND_WHEELUP  0x1002
+#define MOUSE_BIND_MBUTTON   0x1001
+#define MOUSE_BIND_WHEELUP   0x1002
 #define MOUSE_BIND_WHEELDOWN 0x1003
+#define MOUSE_BIND_LBUTTON   0x1004
 
 struct KeyBinding {
     UINT modifiers;
@@ -113,7 +117,7 @@ struct KeyBinding {
 
     std::wstring ToString() const;
     void FromString(const std::wstring& str);
-    bool IsMouseBased() const { return vk == 0; }
+    bool IsMouseBased() const { return vk == 0 || vk >= MOUSE_BIND_MBUTTON; }
 };
 
 extern pfnSetWindowCompositionAttribute g_pSetWindowCompositionAttribute;
@@ -154,6 +158,14 @@ extern bool g_isResetting;
 extern KeyBinding g_bindClickThrough;
 extern KeyBinding g_bindResizeSlow;
 extern KeyBinding g_bindResizeFast;
+extern KeyBinding g_bindCrop;
+extern bool g_isCropping;
+extern RECT g_cropRectStart;
+extern RECT g_cropRectCurrent;
+extern HWND g_hCropOverlay;
+extern RECT g_cropSourceRect;
+extern RECT g_cropLinkRc;
+extern bool g_cropLinkHover;
 extern KeyBinding* g_capturingBinding;
 extern HHOOK g_hCaptureHook;
 extern HHOOK g_hCaptureMouseHook;
@@ -209,15 +221,21 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 #define ID_CHECK_UPDATES 2001
 #define ID_ABOUT 2002
+#define WM_AUTO_UPDATE (WM_APP + 0x200)
 void ShowMainContextMenu(HWND hWnd, int screenX, int screenY);
-void CheckForUpdates(HWND hWnd);
+void CheckForUpdates(HWND hWnd, bool silent = false);
 void ShowAboutDialog(HWND hWnd);
 
 void ShowSettingsDialog();
 void RenderSettingsDialog(HWND hDlg);
 LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam);
 
+void ShowCropOverlay(HWND hCloneWnd);
+void ResetCrop();
+LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 #define WM_BINDING_UPDATE (WM_APP + 1)
+#define WM_CROP_CONFIRM (WM_APP + 2)
 void StartCapture(KeyBinding* binding);
 void CancelCapture();
 void FinishCapture();

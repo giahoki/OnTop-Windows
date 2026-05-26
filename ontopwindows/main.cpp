@@ -64,10 +64,10 @@ static bool CheckBindingModsAndEvent(const KeyBinding& bind, UINT wParam, int wh
     if (GetAsyncKeyState(VK_SHIFT) & 0x8000) mods |= MOD_SHIFT;
     if ((GetAsyncKeyState(VK_LWIN) | GetAsyncKeyState(VK_RWIN)) & 0x8000) mods |= MOD_WIN;
     if (mods != bind.modifiers) return false;
-    if (bind.IsMouseBased()) return wParam == WM_MOUSEWHEEL;
     if (bind.vk == MOUSE_BIND_MBUTTON) return wParam == WM_MBUTTONDOWN;
     if (bind.vk == MOUSE_BIND_WHEELUP) return wParam == WM_MOUSEWHEEL && wheelDir > 0;
     if (bind.vk == MOUSE_BIND_WHEELDOWN) return wParam == WM_MOUSEWHEEL && wheelDir < 0;
+    if (bind.IsMouseBased()) return wParam == WM_MOUSEWHEEL;
     return false;
 }
 
@@ -218,6 +218,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         SaveSettings();
         InstallMouseHook();
         RenderMainWindow(hWnd);
+        if (g_settings.autoUpdate) {
+            PostMessage(hWnd, WM_AUTO_UPDATE, 0, 0);
+        }
         break;
 
     case WM_ERASEBKGND: return 1;
@@ -268,6 +271,9 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         SetCursor(LoadCursorW(nullptr, (PtInRect(&g_btnMainSelect.rect, pt) || PtInRect(&g_btnMainMenu.rect, pt) || PtInRect(&g_settingsBtnRect, pt) || PtInRect(&g_closeBtnRect, pt)) ? IDC_HAND : IDC_ARROW));
         return TRUE;
     }
+    case WM_AUTO_UPDATE:
+        CheckForUpdates(hWnd, true);
+        break;
     case WM_DESTROY:
         if (!g_hCloneWnd) UninstallMouseHook();
         if (!g_hCloneWnd) PostQuitMessage(0);
@@ -414,7 +420,7 @@ void ShowMainContextMenu(HWND hWnd, int screenX, int screenY) {
 }
 
 static std::wstring GetCurrentVersionString() {
-    return L"1.0.3";
+    return APP_VERSION;
 }
 
 static int CompareVersions(const std::wstring& a, const std::wstring& b) {
@@ -474,22 +480,25 @@ static std::wstring HttpGetJson(const std::wstring& host, const std::wstring& pa
     return wresult;
 }
 
-void CheckForUpdates(HWND hWnd) {
+void CheckForUpdates(HWND hWnd, bool silent) {
     std::wstring json = HttpGetJson(L"api.github.com", L"/repos/giahoki/OnTop-Windows/releases/latest");
     if (json.empty()) {
-        MessageBoxW(hWnd, L"Не удалось проверить обновления.\nПроверьте подключение к интернету.", L"Ошибка", MB_OK | MB_ICONWARNING);
+        if (!silent)
+            MessageBoxW(hWnd, L"Не удалось проверить обновления.\nПроверьте подключение к интернету.", L"Ошибка", MB_OK | MB_ICONWARNING);
         return;
     }
 
     auto pos = json.find(L"\"tag_name\":\"");
     if (pos == std::wstring::npos) {
-        MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
+        if (!silent)
+            MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
         return;
     }
     pos += 12;
     auto end = json.find(L"\"", pos);
     if (end == std::wstring::npos) {
-        MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
+        if (!silent)
+            MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
         return;
     }
     std::wstring latestTag = json.substr(pos, end - pos);
@@ -501,7 +510,7 @@ void CheckForUpdates(HWND hWnd) {
         if (MessageBoxW(hWnd, msg.c_str(), L"Обновление", MB_YESNO | MB_ICONINFORMATION) == IDYES) {
             ShellExecuteW(hWnd, L"open", L"https://github.com/giahoki/OnTop-Windows/releases/latest", nullptr, nullptr, SW_SHOW);
         }
-    } else {
+    } else if (!silent) {
         std::wstring msg = L"У вас актуальная версия: " + currentVer;
         MessageBoxW(hWnd, msg.c_str(), L"Обновление", MB_OK | MB_ICONINFORMATION);
     }
@@ -510,8 +519,10 @@ void CheckForUpdates(HWND hWnd) {
 static HWND g_hAboutDlg = nullptr;
 static RECT g_aboutCloseRc = { 0, 0, 0, 0 };
 static RECT g_aboutLinkRc = { 0, 0, 0, 0 };
+static RECT g_aboutTgLinkRc = { 0, 0, 0, 0 };
 static bool g_aboutCloseHover = false;
 static bool g_aboutLinkHover = false;
+static bool g_aboutTgLinkHover = false;
 
 static void RenderAboutDialog(HWND hDlg) {
     RECT rc; GetClientRect(hDlg, &rc);
@@ -545,7 +556,7 @@ static void RenderAboutDialog(HWND hDlg) {
         L"Версия " + GetCurrentVersionString(),
         L"",
         L"\u0420\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u0447\u0438\u043A: giahoki",
-        L"Telegram: @bezd2rr",
+        L"Telegram: ",
         L"",
         L"\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F: MIT",
         L"github.com/giahoki/OnTop-Windows",
@@ -556,12 +567,20 @@ static void RenderAboutDialog(HWND hDlg) {
         if (line.empty()) { y += 10; continue; }
         bool bold = (line == L"OnTop Windows") || (line.find(L"\u0420\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u0447\u0438\u043A") == 0);
         bool isLink = (line.find(L"github.com/") == 0);
+        bool isTg = (line == L"Telegram: ");
         int fs = isLink ? 13 : 13;
-        COLORREF txtColor = isLink ? COLOR_ACCENT : COLOR_TEXT_PRIMARY;
+        COLORREF txtColor = (isLink || isTg) ? COLOR_ACCENT : COLOR_TEXT_PRIMARY;
         RECT lineRc = { 20, y, w - 20, y + 24 };
         if (isLink) {
             g_aboutLinkRc = { 20, y, w - 20, y + 24 };
             DrawTextStyled(hMemDC, line, lineRc, txtColor, bold, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
+        } else if (isTg) {
+            // Draw "Telegram: " as normal text, then "@bezd2rr" as a link
+            RECT labelRc = { 20, y, 120, y + 24 };
+            DrawTextStyled(hMemDC, L"Telegram: ", labelRc, COLOR_TEXT_PRIMARY, false, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
+            g_aboutTgLinkRc = { 120, y, w - 20, y + 24 };
+            COLORREF tgColor = g_aboutTgLinkHover ? COLOR_ACCENT_HOVER : COLOR_ACCENT;
+            DrawTextStyled(hMemDC, L"@bezd2rr", g_aboutTgLinkRc, tgColor, true, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
         } else {
             DrawTextStyled(hMemDC, line, lineRc, txtColor, bold, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
         }
@@ -588,6 +607,7 @@ static LRESULT CALLBACK AboutWndProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         g_hAboutDlg = hDlg;
         g_aboutCloseHover = false;
         g_aboutLinkHover = false;
+        g_aboutTgLinkHover = false;
         ApplyWin11Effects(hDlg);
         break;
     case WM_ERASEBKGND: return 1;
@@ -605,6 +625,10 @@ static LRESULT CALLBACK AboutWndProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
             ShellExecuteW(hDlg, L"open", L"https://github.com/giahoki/OnTop-Windows", nullptr, nullptr, SW_SHOW);
             return 0;
         }
+        if (PtInRect(&g_aboutTgLinkRc, pt)) {
+            ShellExecuteW(hDlg, L"open", L"https://t.me/bezd2rr", nullptr, nullptr, SW_SHOW);
+            return 0;
+        }
         if (pt.y < 40) SendMessage(hDlg, WM_SYSCOMMAND, SC_MOVE | 0x2, 0);
         break;
     }
@@ -614,12 +638,14 @@ static LRESULT CALLBACK AboutWndProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM 
         if (g_aboutCloseHover != nc) { g_aboutCloseHover = nc; RenderAboutDialog(hDlg); }
         bool nl = PtInRect(&g_aboutLinkRc, pt);
         if (g_aboutLinkHover != nl) { g_aboutLinkHover = nl; RenderAboutDialog(hDlg); }
+        bool ntl = PtInRect(&g_aboutTgLinkRc, pt);
+        if (g_aboutTgLinkHover != ntl) { g_aboutTgLinkHover = ntl; RenderAboutDialog(hDlg); }
         break;
     }
     case WM_NCHITTEST: return HTCLIENT;
     case WM_SETCURSOR: {
         POINT pt; GetCursorPos(&pt); ScreenToClient(hDlg, &pt);
-        if (PtInRect(&g_aboutCloseRc, pt) || PtInRect(&g_aboutLinkRc, pt)) {
+        if (PtInRect(&g_aboutCloseRc, pt) || PtInRect(&g_aboutLinkRc, pt) || PtInRect(&g_aboutTgLinkRc, pt)) {
             SetCursor(LoadCursorW(nullptr, IDC_HAND));
             return TRUE;
         }
