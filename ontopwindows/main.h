@@ -90,7 +90,7 @@ const COLORREF COLOR_BORDER = RGB(0x45, 0x45, 0x45);
 
 #define SETTINGS_VERSION 6
 
-#define APP_VERSION L"1.1.0"
+#define APP_VERSION L"1.1.2"
 
 struct Button {
     RECT rect = {0, 0, 0, 0};
@@ -167,9 +167,7 @@ extern RECT g_cropRectStart;
 extern RECT g_cropRectCurrent;
 extern HWND g_hCropOverlay;
 extern RECT g_cropSourceRect;
-extern RECT g_cropLinkRc;
 extern const Strings* g_str;
-extern bool g_cropLinkHover;
 extern KeyBinding* g_capturingBinding;
 extern HHOOK g_hCaptureHook;
 extern HHOOK g_hCaptureMouseHook;

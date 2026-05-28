@@ -152,8 +152,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="*.cpp" />
+    <ClCompile Include="core\*.cpp" />
+    <ClCompile Include="ui\*.cpp" />
     <ClInclude Include="*.h" />
     <ClInclude Include="*.hpp" />
+    <ClInclude Include="core\*.h" />
+    <ClInclude Include="ui\*.h" />
     <ClInclude Include="lang\*.h" />
     <ApplicationManifest Include="app.manifest" />
   </ItemGroup>

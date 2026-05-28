@@ -7,6 +7,7 @@
 x64/
 Debug/
 Release/
+OnTopWindows/
 *.exe
 *.pdb
 *.lib
