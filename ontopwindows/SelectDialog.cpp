@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 
 HWND g_hSelectDlg = nullptr;
 HWND g_hListBox = nullptr;
@@ -60,8 +60,8 @@ LRESULT CALLBACK SelectWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam
             WS_CHILD | WS_VISIBLE | WS_VSCROLL | LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | LBS_OWNERDRAWFIXED | LBS_HASSTRINGS,
             16, 50, 368, 310, hDlg, (HMENU)100, ((LPCREATESTRUCT)lParam)->hInstance, 0);
 
-        CreateWindowW(L"BUTTON", L"Выбрать", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 16, 375, 178, 40, hDlg, (HMENU)101, ((LPCREATESTRUCT)lParam)->hInstance, 0);
-        CreateWindowW(L"BUTTON", L"Отмена", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 206, 375, 178, 40, hDlg, (HMENU)102, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+        CreateWindowW(L"BUTTON", g_str->select_btn, WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 16, 375, 178, 40, hDlg, (HMENU)101, ((LPCREATESTRUCT)lParam)->hInstance, 0);
+        CreateWindowW(L"BUTTON", g_str->select_cancel, WS_CHILD | WS_VISIBLE | BS_OWNERDRAW, 206, 375, 178, 40, hDlg, (HMENU)102, ((LPCREATESTRUCT)lParam)->hInstance, 0);
 
         g_windowList.clear();
         EnumWindows(EnumWindowsProc, 0);
@@ -85,7 +85,7 @@ LRESULT CALLBACK SelectWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lParam
 
         RECT titleRc = { 0, 0, w, 40 };
         FillRectWithColor(hMemDC, titleRc, COLOR_BG_CARD);
-        DrawTextStyled(hMemDC, L"\u25C9  Выберите окно для клонирования", { 16, 0, w - 56, 40 }, COLOR_TEXT_PRIMARY, true, 13);
+        DrawTextStyled(hMemDC, g_str->select_title, { 16, 0, w - 56, 40 }, COLOR_TEXT_PRIMARY, true, 13);
 
         g_dlgCloseBtn = { w - 46, 0, w, 40 };
         DrawCloseButton(hMemDC, g_dlgCloseBtn, g_dlgCloseBtnHover);
@@ -189,10 +189,10 @@ void ShowSelectWindowDialog() {
     wc.lpfnWndProc = SelectWinProc; wc.hInstance = hInst; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = NULL; wc.lpszClassName = L"SelectWinClass";
     RegisterClassExW(&wc);
-    HWND hDlg = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED, L"SelectWinClass", L"Выбор окна", WS_POPUP, 0, 0, 400, 450, g_hMainWnd, nullptr, hInst, nullptr);
+    HWND hDlg = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED, L"SelectWinClass", g_str->select_window_title, WS_POPUP, 0, 0, 400, 450, g_hMainWnd, nullptr, hInst, nullptr);
     if (hDlg) {
         SetLayeredWindowAttributes(hDlg, 0, 190, LWA_ALPHA);
         UpdateWindow(hDlg);
         ShowWindow(hDlg, SW_SHOW);
     }
-}
+}

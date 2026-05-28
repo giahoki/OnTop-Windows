@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 
 void FillRectWithColor(HDC hdc, const RECT& rc, COLORREF color) {
     HBRUSH hBrush = CreateSolidBrush(color);
@@ -185,4 +185,4 @@ int SliderValueFromX(int x, int minV, int maxV, int trackL, int trackR) {
     if (x < trackL) return minV;
     if (x > trackR) return maxV;
     return minV + (x - trackL) * (maxV - minV) / (trackR - trackL);
-}
+}

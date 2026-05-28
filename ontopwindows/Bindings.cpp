@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 
 KeyBinding g_bindClickThrough;
 KeyBinding g_bindResizeSlow;
@@ -255,4 +255,4 @@ void ApplyBindings() {
             RegisterHotKey(g_hCloneWnd, 1, g_bindClickThrough.modifiers, g_bindClickThrough.vk);
         }
     }
-}
+}

@@ -16,5 +16,18 @@ Release/
 # Settings
 settings.ini
 
-# Other
+# InnoSetup
 *.iss
+OnTop Windows_Setup.exe
+
+# Advanced Installer
+*.aip
+
+# Build scripts
+*.bat
+
+# Installer cache
+.wix/
+OnTopWindows-cache/
+
+

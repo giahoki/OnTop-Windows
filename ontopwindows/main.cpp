@@ -1,4 +1,26 @@
-﻿#include "main.h"
+#include "main.h"
+#include "lang/ru.h"
+#include "lang/en.h"
+#include "lang/es.h"
+#include "lang/uk.h"
+#include "lang/fr.h"
+#include "lang/de.h"
+#include "lang/pl.h"
+
+const Strings* g_str = nullptr;
+
+void SetLanguage() {
+    switch (g_settings.language) {
+    case 0: g_str = &strings_ru; break;
+    case 1: g_str = &strings_en; break;
+    case 2: g_str = &strings_es; break;
+    case 3: g_str = &strings_uk; break;
+    case 4: g_str = &strings_fr; break;
+    case 5: g_str = &strings_de; break;
+    case 6: g_str = &strings_pl; break;
+    default: g_str = &strings_en; break;
+    }
+}
 
 pfnSetWindowCompositionAttribute g_pSetWindowCompositionAttribute = nullptr;
 ULONG_PTR g_gdiplusToken = 0;
@@ -161,7 +183,7 @@ void RenderMainWindow(HWND hWnd) {
     FillRectWithColor(hMemDC, rc, COLOR_BG_MAIN);
     g_titleBarRect = { 0, 0, w, 40 };
     FillRectWithColor(hMemDC, g_titleBarRect, COLOR_BG_CARD);
-    DrawTextStyled(hMemDC, L"OnTop Windows", { 16, 0, w - 110, 40 }, COLOR_TEXT_PRIMARY, false, 13);
+    DrawTextStyled(hMemDC, g_str->main_title, { 16, 0, w - 110, 40 }, COLOR_TEXT_PRIMARY, false, 13);
     g_settingsBtnRect = { w - 86, 4, w - 50, 36 };
     if (g_settingsBtnHover) FillRectWithColor(hMemDC, g_settingsBtnRect, COLOR_BG_HOVER);
     DrawTextStyled(hMemDC, L"\u2699", g_settingsBtnRect, g_settingsBtnHover ? COLOR_TEXT_PRIMARY : COLOR_TEXT_SECOND, false, 13, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -169,10 +191,10 @@ void RenderMainWindow(HWND hWnd) {
     DrawCloseButton(hMemDC, g_closeBtnRect, g_closeBtnHover);
     int btnW = 200, btnH = 44;
     int selectTop = (h - 40 - btnH * 2 - 8) / 2 + 40;
-    g_btnMainSelect = { { (w - btnW)/2, selectTop, (w + btnW)/2, selectTop + btnH }, L"\u2795  Выбрать окно", false, true };
+    g_btnMainSelect = { { (w - btnW)/2, selectTop, (w + btnW)/2, selectTop + btnH }, g_str->main_select_btn, false, true };
     DrawButton(hMemDC, g_btnMainSelect);
     int menuTop = selectTop + btnH + 8;
-    g_btnMainMenu = { { (w - btnW)/2, menuTop, (w + btnW)/2, menuTop + btnH }, L"\u2630  Меню", false, false };
+    g_btnMainMenu = { { (w - btnW)/2, menuTop, (w + btnW)/2, menuTop + btnH }, g_str->main_menu_btn, false, false };
     DrawButton(hMemDC, g_btnMainMenu);
 
     DWORD* pixel = (DWORD*)bits;
@@ -217,6 +239,7 @@ LRESULT CALLBACK MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         LoadSettings();
         SaveSettings();
         InstallMouseHook();
+        SetLanguage();
         RenderMainWindow(hWnd);
         if (g_settings.autoUpdate) {
             PostMessage(hWnd, WM_AUTO_UPDATE, 0, 0);
@@ -395,10 +418,10 @@ void ShowMainContextMenu(HWND hWnd, int screenX, int screenY) {
     g_mainMenuResult = 0;
     g_mainMenuDestroying = false;
     g_mainMenuItems.clear();
-    g_mainMenuItems.push_back({ L"🔄  Проверить обновления", ID_CHECK_UPDATES, { pad, pad, menuW - pad, pad + itemH }, false });
-    g_mainMenuItems.push_back({ L"ℹ  О программе", ID_ABOUT, { pad, pad + itemH, menuW - pad, pad + 2 * itemH }, false });
+    g_mainMenuItems.push_back({ g_str->menu_check_updates, ID_CHECK_UPDATES, { pad, pad, menuW - pad, pad + itemH }, false });
+    g_mainMenuItems.push_back({ g_str->menu_about, ID_ABOUT, { pad, pad + itemH, menuW - pad, pad + 2 * itemH }, false });
 
-    g_hMainMenuWnd = CreateWindowExW(WS_EX_TOPMOST, L"MainMenuClass", L"", WS_POPUP, screenX, screenY, menuW, menuH, nullptr, nullptr, hInst, nullptr);
+    g_hMainMenuWnd = CreateWindowExW(WS_EX_TOPMOST, L"MainMenuClass", L"", WS_POPUP, screenX, screenY, menuW, menuH, hWnd, nullptr, hInst, nullptr);
 
     ShowWindow(g_hMainMenuWnd, SW_SHOW);
     SetForegroundWindow(g_hMainMenuWnd);
@@ -484,21 +507,21 @@ void CheckForUpdates(HWND hWnd, bool silent) {
     std::wstring json = HttpGetJson(L"api.github.com", L"/repos/giahoki/OnTop-Windows/releases/latest");
     if (json.empty()) {
         if (!silent)
-            MessageBoxW(hWnd, L"Не удалось проверить обновления.\nПроверьте подключение к интернету.", L"Ошибка", MB_OK | MB_ICONWARNING);
+            MessageBoxW(hWnd, g_str->update_check_fail, g_str->update_error_title, MB_OK | MB_ICONWARNING);
         return;
     }
 
     auto pos = json.find(L"\"tag_name\":\"");
     if (pos == std::wstring::npos) {
         if (!silent)
-            MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
+            MessageBoxW(hWnd, g_str->update_version_fail, g_str->update_error_title, MB_OK | MB_ICONWARNING);
         return;
     }
     pos += 12;
     auto end = json.find(L"\"", pos);
     if (end == std::wstring::npos) {
         if (!silent)
-            MessageBoxW(hWnd, L"Не удалось получить информацию о версии.", L"Ошибка", MB_OK | MB_ICONWARNING);
+            MessageBoxW(hWnd, g_str->update_version_fail, g_str->update_error_title, MB_OK | MB_ICONWARNING);
         return;
     }
     std::wstring latestTag = json.substr(pos, end - pos);
@@ -506,13 +529,13 @@ void CheckForUpdates(HWND hWnd, bool silent) {
 
     int cmp = CompareVersions(currentVer, latestTag);
     if (cmp < 0) {
-        std::wstring msg = L"Доступна новая версия: " + latestTag + L"\n\nТекущая версия: " + currentVer + L"\n\nХотите скачать обновление?";
-        if (MessageBoxW(hWnd, msg.c_str(), L"Обновление", MB_YESNO | MB_ICONINFORMATION) == IDYES) {
+        std::wstring msg = std::wstring(g_str->update_available) + latestTag + std::wstring(g_str->update_current) + currentVer + std::wstring(g_str->update_download_prompt);
+        if (MessageBoxW(hWnd, msg.c_str(), g_str->update_title, MB_YESNO | MB_ICONINFORMATION) == IDYES) {
             ShellExecuteW(hWnd, L"open", L"https://github.com/giahoki/OnTop-Windows/releases/latest", nullptr, nullptr, SW_SHOW);
         }
     } else if (!silent) {
-        std::wstring msg = L"У вас актуальная версия: " + currentVer;
-        MessageBoxW(hWnd, msg.c_str(), L"Обновление", MB_OK | MB_ICONINFORMATION);
+        std::wstring msg = std::wstring(g_str->update_up_to_date) + currentVer;
+        MessageBoxW(hWnd, msg.c_str(), g_str->update_title, MB_OK | MB_ICONINFORMATION);
     }
 }
 
@@ -546,45 +569,43 @@ static void RenderAboutDialog(HWND hDlg) {
 
     RECT titleRc = { 0, 0, w, 40 };
     FillRectWithColor(hMemDC, titleRc, COLOR_BG_CARD);
-    DrawTextStyled(hMemDC, L"\u2139  О программе", { 16, 0, w - 56, 40 }, COLOR_TEXT_PRIMARY, false, 13);
+    DrawTextStyled(hMemDC, g_str->about_title, { 16, 0, w - 56, 40 }, COLOR_TEXT_PRIMARY, false, 13);
 
     g_aboutCloseRc = { w - 46, 0, w, 40 };
     DrawCloseButton(hMemDC, g_aboutCloseRc, g_aboutCloseHover);
 
-    std::wstring lines[] = {
-        L"OnTop Windows",
-        L"Версия " + GetCurrentVersionString(),
-        L"",
-        L"\u0420\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u0447\u0438\u043A: giahoki",
-        L"Telegram: ",
-        L"",
-        L"\u041B\u0438\u0446\u0435\u043D\u0437\u0438\u044F: MIT",
-        L"github.com/giahoki/OnTop-Windows",
-    };
-
     int y = 52;
-    for (const auto& line : lines) {
-        if (line.empty()) { y += 10; continue; }
-        bool bold = (line == L"OnTop Windows") || (line.find(L"\u0420\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u0447\u0438\u043A") == 0);
-        bool isLink = (line.find(L"github.com/") == 0);
-        bool isTg = (line == L"Telegram: ");
-        int fs = isLink ? 13 : 13;
-        COLORREF txtColor = (isLink || isTg) ? COLOR_ACCENT : COLOR_TEXT_PRIMARY;
-        RECT lineRc = { 20, y, w - 20, y + 24 };
-        if (isLink) {
-            g_aboutLinkRc = { 20, y, w - 20, y + 24 };
-            DrawTextStyled(hMemDC, line, lineRc, txtColor, bold, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
-        } else if (isTg) {
-            RECT labelRc = { 20, y, 120, y + 24 };
-            DrawTextStyled(hMemDC, L"Telegram: ", labelRc, COLOR_TEXT_PRIMARY, false, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
-            g_aboutTgLinkRc = { 120, y, w - 20, y + 24 };
-            COLORREF tgColor = g_aboutTgLinkHover ? COLOR_ACCENT_HOVER : COLOR_ACCENT;
-            DrawTextStyled(hMemDC, L"@bezd2rr", g_aboutTgLinkRc, tgColor, true, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
-        } else {
-            DrawTextStyled(hMemDC, line, lineRc, txtColor, bold, fs, DT_LEFT | DT_TOP | DT_SINGLELINE);
-        }
-        y += 26;
+
+    DrawTextStyled(hMemDC, g_str->main_title, { 20, y, w - 20, y + 24 }, COLOR_TEXT_PRIMARY, true, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    y += 26;
+
+    std::wstring verStr = std::wstring(g_str->about_version) + GetCurrentVersionString();
+    DrawTextStyled(hMemDC, verStr, { 20, y, w - 20, y + 24 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    y += 26;
+
+    y += 10;
+
+    std::wstring devStr = std::wstring(g_str->about_developer) + L"giahoki";
+    DrawTextStyled(hMemDC, devStr, { 20, y, w - 20, y + 24 }, COLOR_TEXT_PRIMARY, true, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    y += 26;
+
+    {
+        RECT labelRc = { 20, y, 120, y + 24 };
+        DrawTextStyled(hMemDC, g_str->about_telegram, labelRc, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+        g_aboutTgLinkRc = { 120, y, w - 20, y + 24 };
+        COLORREF tgColor = g_aboutTgLinkHover ? COLOR_ACCENT_HOVER : COLOR_ACCENT;
+        DrawTextStyled(hMemDC, L"@bezd2rr", g_aboutTgLinkRc, tgColor, true, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
     }
+    y += 26;
+
+    y += 10;
+
+    DrawTextStyled(hMemDC, g_str->about_license, { 20, y, w - 20, y + 24 }, COLOR_TEXT_PRIMARY, false, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    y += 26;
+
+    g_aboutLinkRc = { 20, y, w - 20, y + 24 };
+    DrawTextStyled(hMemDC, L"github.com/giahoki/OnTop-Windows", g_aboutLinkRc, COLOR_ACCENT, false, 13, DT_LEFT | DT_TOP | DT_SINGLELINE);
+    y += 26;
 
     DWORD* pixel = (DWORD*)bits;
     for (int i = 0; i < w * h; i++) {
@@ -664,7 +685,7 @@ void ShowAboutDialog(HWND hWnd) {
     wc.lpfnWndProc = AboutWndProc; wc.hInstance = hInst; wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = NULL; wc.lpszClassName = L"AboutWinClass";
     RegisterClassExW(&wc);
-    HWND hDlg = CreateWindowExW(WS_EX_LAYERED, L"AboutWinClass", L"\u2139 О программе", WS_POPUP, 0, 0, 360, 280, hWnd, nullptr, hInst, nullptr);
+    HWND hDlg = CreateWindowExW(WS_EX_LAYERED, L"AboutWinClass", g_str->about_title, WS_POPUP, 0, 0, 360, 280, hWnd, nullptr, hInst, nullptr);
     if (hDlg) {
         CenterWindow(hDlg, 360, 280);
         ShowWindow(hDlg, SW_SHOW);
@@ -673,7 +694,6 @@ void ShowAboutDialog(HWND hWnd) {
 }
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow) {
-    SetProcessDPIAware();
     InitCommonControls();
     GdiplusStartupInput gsi;
     GdiplusStartup(&g_gdiplusToken, &gsi, nullptr);
@@ -699,4 +719,4 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     }
     GdiplusShutdown(g_gdiplusToken);
     return 0;
-}
+}

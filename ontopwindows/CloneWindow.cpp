@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 
 HWND g_hCloneWnd = nullptr;
 HTHUMBNAIL g_hThumbnail = nullptr;
@@ -203,7 +203,7 @@ LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 
         
         RECT instrRc = { 0, h - 40, w, h };
-        DrawTextStyled(hMemDC, L"\u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u043A\u043D\u043E\u043F\u043A\u0443 \u0434\u043B\u044F \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F \u2022 Esc \u0434\u043B\u044F \u043E\u0442\u043C\u0435\u043D\u044B",
+        DrawTextStyled(hMemDC, g_str->crop_instruction,
                        instrRc, COLOR_TEXT_SECOND, false, 12, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
         BitBlt(hdc, 0, 0, w, h, hMemDC, 0, 0, SRCCOPY);
@@ -388,6 +388,10 @@ void ApplyCrop(HWND hCloneWnd, const RECT& cropRect) {
     int newTop  = cloneRc.top  + cropRect.top;
 
     SetWindowPos(hCloneWnd, nullptr, newLeft, newTop, cropW, cropH + titleH, SWP_NOZORDER);
+
+    if (cropW > 0 && cropH > 0 && g_settings.preserveAspectRatio) {
+        g_sourceAspectRatio = (double)cropW / cropH;
+    }
 
     UpdateThumbnail();
     InvalidateRect(hCloneWnd, nullptr, TRUE);
@@ -603,7 +607,7 @@ LRESULT CALLBACK CloneWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             g_titleBarRect = { 0, 0, w, 36 };
             FillRectWithAlpha(hMemDC, g_titleBarRect, RGB(0x15, 0x15, 0x15), 200);
 
-            std::wstring titleStr = L"OnTop Windows";
+            std::wstring titleStr = g_str->clone_title;
             if (g_clickThrough) titleStr += L" \u25CB";
             DrawTextStyled(hMemDC, titleStr, { 12, 0, w - 50, 36 }, g_clickThrough ? COLOR_TEXT_SECOND : COLOR_TEXT_PRIMARY, false, 13);
 
@@ -757,12 +761,12 @@ void ShowCloneContextMenu(HWND hWnd, int screenX, int screenY) {
     g_menuResult = 0;
     g_menuDestroying = false;
     g_menuItems.clear();
-    g_menuItems.push_back({ L"\u27F2 \u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043E\u043A\u043D\u043E", ID_RESET, { pad, pad, menuW - pad, pad + itemH }, false });
-    g_menuItems.push_back({ L"\u25A1 \u0413\u0440\u0430\u043D\u0438\u0446\u044B", ID_TOGGLE_BORDER, { pad, pad + itemH, menuW - pad, pad + 2 * itemH }, false });
-    g_menuItems.push_back({ L"\u21A9 \u041D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435", ID_RETURN_MAIN, { pad, pad + 2 * itemH, menuW - pad, pad + 3 * itemH }, false });
-    g_menuItems.push_back({ L"\u2715 \u0417\u0430\u043A\u0440\u044B\u0442\u044C", ID_CLOSE, { pad, pad + 3 * itemH, menuW - pad, pad + 4 * itemH }, false });
+    g_menuItems.push_back({ g_str->ctx_reset_window, ID_RESET, { pad, pad, menuW - pad, pad + itemH }, false });
+    g_menuItems.push_back({ g_str->ctx_toggle_border, ID_TOGGLE_BORDER, { pad, pad + itemH, menuW - pad, pad + 2 * itemH }, false });
+    g_menuItems.push_back({ g_str->ctx_return_main, ID_RETURN_MAIN, { pad, pad + 2 * itemH, menuW - pad, pad + 3 * itemH }, false });
+    g_menuItems.push_back({ g_str->ctx_close, ID_CLOSE, { pad, pad + 3 * itemH, menuW - pad, pad + 4 * itemH }, false });
 
-    g_hMenuWnd = CreateWindowExW(WS_EX_TOPMOST, L"ContextMenuClass", L"", WS_POPUP, screenX, screenY, menuW, menuH, nullptr, nullptr, hInst, nullptr);
+    g_hMenuWnd = CreateWindowExW(WS_EX_TOPMOST, L"ContextMenuClass", L"", WS_POPUP, screenX, screenY, menuW, menuH, hWnd, nullptr, hInst, nullptr);
 
     ShowWindow(g_hMenuWnd, SW_SHOW);
     SetForegroundWindow(g_hMenuWnd);
@@ -846,4 +850,4 @@ void CreateCloneWindow() {
     wc.hbrBackground = NULL; wc.lpszClassName = L"CloneWndClass";
     RegisterClassExW(&wc);
     CreateWindowExW(WS_EX_TOPMOST, L"CloneWndClass", L"OnTop Windows", WS_POPUP | WS_VISIBLE, 0, 0, 800, 600, nullptr, nullptr, hInst, nullptr);
-}
+}

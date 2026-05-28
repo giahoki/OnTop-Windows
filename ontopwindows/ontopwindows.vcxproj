@@ -151,10 +151,10 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <!-- Wildcard: автоматически включает все .cpp/.h файлы из папки проекта -->
     <ClCompile Include="*.cpp" />
     <ClInclude Include="*.h" />
     <ClInclude Include="*.hpp" />
+    <ClInclude Include="lang\*.h" />
     <ApplicationManifest Include="app.manifest" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,4 +1,6 @@
-﻿#pragma once
+#pragma once
+
+#include "lang/strings.h"
 
 #ifndef UNICODE
 #define UNICODE
@@ -86,9 +88,9 @@ const COLORREF COLOR_ACCENT = RGB(0x60, 0xCD, 0xFF);
 const COLORREF COLOR_ACCENT_HOVER = RGB(0x4F, 0xB4, 0xE6);
 const COLORREF COLOR_BORDER = RGB(0x45, 0x45, 0x45);
 
-#define SETTINGS_VERSION 5
+#define SETTINGS_VERSION 6
 
-#define APP_VERSION L"1.0.5"
+#define APP_VERSION L"1.1.0"
 
 struct Button {
     RECT rect = {0, 0, 0, 0};
@@ -104,6 +106,7 @@ struct AppSettings {
     int maxCloneWidth = 800;
     int maxCloneHeight = 600;
     bool autoUpdate = true;
+    int language = 1;
 };
 
 #define MOUSE_BIND_MBUTTON   0x1001
@@ -165,6 +168,7 @@ extern RECT g_cropRectCurrent;
 extern HWND g_hCropOverlay;
 extern RECT g_cropSourceRect;
 extern RECT g_cropLinkRc;
+extern const Strings* g_str;
 extern bool g_cropLinkHover;
 extern KeyBinding* g_capturingBinding;
 extern HHOOK g_hCaptureHook;
@@ -233,6 +237,7 @@ LRESULT CALLBACK SettingsWinProc(HWND hDlg, UINT msg, WPARAM wParam, LPARAM lPar
 
 void ShowCropOverlay(HWND hCloneWnd);
 void ResetCrop();
+void SetLanguage();
 LRESULT CALLBACK CropOverlayWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #define WM_BINDING_UPDATE (WM_APP + 1)
@@ -243,4 +248,4 @@ void FinishCapture();
 void ProcessCaptureKey(UINT vk, bool down);
 void ApplyBindings();
 LRESULT CALLBACK CaptureKeyHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-LRESULT CALLBACK CaptureMouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK CaptureMouseHookProc(int nCode, WPARAM wParam, LPARAM lParam);
